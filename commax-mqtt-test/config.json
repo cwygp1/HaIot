@@ -25,6 +25,8 @@
     "poll_wait_ms": 40,
     "retry_interval_ms": 300,
     "max_retry": 5,
+    "tx_enable": true,
+    "max_tx_per_min": 60,
     "scan_seconds": 20,
     "ew11_restart_after_sec": 60,
     "ew11_restart_min_interval_sec": 300
@@ -44,6 +46,8 @@
     "poll_wait_ms": "int(0,500)?",
     "retry_interval_ms": "int(50,5000)?",
     "max_retry": "int(1,20)?",
+    "tx_enable": "bool?",
+    "max_tx_per_min": "int(1,600)?",
     "scan_seconds": "int(5,120)?",
     "ew11_restart_after_sec": "int(10,3600)?",
     "ew11_restart_min_interval_sec": "int(30,86400)?"

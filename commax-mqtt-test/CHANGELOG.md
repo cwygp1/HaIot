@@ -14,7 +14,8 @@ v 1.2.4 (2026-10-12, cwygp1 패치)
 9. 미등록 헤더 패킷은 헤더별 1회 INFO 로그, KeyError 제거. 패킷 해석 실패는 WARNING
 10. paho 콜백 → asyncio 큐로 전달하는 단일 이벤트 루프 구조. 베이스 이미지 python:3.11-slim-bookworm, paho-mqtt 2.x
 11. discovery 페이로드에서 잘못된 `device_class`(light/climate/fan) 제거, 콘센트 전력 센서는 device_class power + W
-12. 옵션 추가: `mqtt_port`, `send_gap_ms`, `retry_interval_ms`, `max_retry`, `scan_seconds`, `ew11_restart_after_sec`, `ew11_restart_min_interval_sec`. `save_unregistered_signal` 삭제(동작하지 않던 옵션)
+12. `tx_enable`(수신 전용 모드)과 `max_tx_per_min`(분당 송신 상한) 안전장치 추가
+13. 옵션 추가: `mqtt_port`, `send_gap_ms`, `retry_interval_ms`, `max_retry`, `scan_seconds`, `ew11_restart_after_sec`, `ew11_restart_min_interval_sec`. `save_unregistered_signal` 삭제(동작하지 않던 옵션)
 
 v 1.2.3
 -------

@@ -134,4 +134,22 @@ ctl.on_packet('B0010100000000B2')   # 응답
 loop.run_until_complete(short_run())
 check(len([p for t,p,_ in fc.pub if t=='ew11/send'])==1, 'send 15ms after a response packet')
 print('FAILS(2) =', fails)
+
+# tx_enable=false : 큐에 넣어도 송신하지 않음 / max_tx_per_min 상한
+fc.pub.clear(); ctl.queue.clear()
+ctl.cfg['tx_enable'] = False
+ctl.on_ha_command(['commax','Light1','power','command'], 'ON'); ctl.on_packet('B0010100000000B2')
+loop.run_until_complete(short_run())
+check([p for t,p,_ in fc.pub if t=='ew11/send']==[] and ctl.queue==[], 'tx_enable=false drops command without sending')
+ctl.cfg['tx_enable'] = True; ctl.cfg['max_tx_per_min'] = 2; fc.pub.clear()
+for n in (1,2,3):
+    ctl.on_ha_command(['commax','Light%d'%n,'power','command'], 'ON')
+ctl.on_packet('B0010100000000B2')
+async def run_long():
+    task = loop.create_task(ctl.sender()); await asyncio.sleep(0.8); task.cancel()
+    try: await task
+    except asyncio.CancelledError: pass
+loop.run_until_complete(run_long())
+check(len([p for t,p,_ in fc.pub if t=='ew11/send'])==2, 'max_tx_per_min caps sends at 2')
+print('FAILS(3) =', fails)
 sys.exit(1 if fails else 0)

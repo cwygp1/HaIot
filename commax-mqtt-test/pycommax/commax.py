@@ -42,6 +42,7 @@ TEMPLATE_FILE = DATA_DIR + '/commax_devinfo.json'
 DEFAULTS = {
     'DEBUG': False, 'mqtt_log': True, 'elfin_log': False,
     'send_gap_ms': 15, 'poll_wait_ms': 40, 'retry_interval_ms': 300, 'max_retry': 5,
+    'tx_enable': True, 'max_tx_per_min': 60,
     'scan_seconds': 20,
     'ew11_restart_after_sec': 60, 'ew11_restart_min_interval_sec': 300,
 }
@@ -395,8 +396,22 @@ class Controller:
         poll_wait = self.cfg.get('poll_wait_ms', 40) / 1000.0
         retry = self.cfg['retry_interval_ms'] / 1000.0
         max_retry = int(self.cfg['max_retry'])
+        tx_enable = bool(self.cfg.get('tx_enable', True))
+        max_per_min = int(self.cfg.get('max_tx_per_min', 60))
+        self.tx_times = []
+        if not tx_enable:
+            log('[LOG] tx_enable=false : 수신 전용 모드. HA 명령은 버스로 보내지 않습니다.')
         while True:
             now = time.monotonic()
+            if self.queue and not tx_enable:
+                q = self.queue.pop(0)
+                log('[WARNING] 수신 전용 모드라 명령을 보내지 않음: {}{} {}'.format(q['name'], q['id'], q['send']))
+                continue
+            self.tx_times = [t for t in self.tx_times if now - t < 60]
+            if self.queue and len(self.tx_times) >= max_per_min:
+                q = self.queue.pop(0)
+                log('[WARNING] 분당 송신 상한({}) 초과, 명령 폐기: {}{} {}'.format(max_per_min, q['name'], q['id'], q['send']))
+                continue
             if self.ev_off_at and now > self.ev_off_at and self.home.get('EV1power') == 'ON':
                 self.set_state('EV1', 'power', 'OFF')
                 self.ev_off_at = 0.0
@@ -412,6 +427,7 @@ class Controller:
                     self.client.publish(ELFIN_SEND_TOPIC, bytes.fromhex(q['send']))
                     q['count'] += 1
                     q['last'] = now
+                    self.tx_times.append(now)
                     self.last_recv = now           # 내 송신 직후에도 gap 만큼 쉬기
                     if self.elfin_log:
                         log('[SIGNAL] 신호 전송({}): {}'.format(q['count'], q['send']))
