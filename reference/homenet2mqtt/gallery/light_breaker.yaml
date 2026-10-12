@@ -1,0 +1,49 @@
+meta:
+  name: "일괄소등"
+  name_en: "Light Breaker"
+  description: |
+    코맥스 일괄소등 스위치 설정입니다.
+
+    | Index | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+    | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+    | 상태 | Head | ON | ID | 0x00 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 상태 ON | 0xA0 | 0x01 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 상태 OFF | 0xA0 | 0x00 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 응답 ON | 0xA2 | 0x01 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 응답 OFF | 0xA2 | 0x00 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | add checksum |
+
+    | 구분 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+    | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+    | 명령 | Head | ID | ON | 0x01 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 명령 ON | 0x22 | 0x01 | 0x01 | 0x01 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 명령 OFF | 0x22 | 0x01 | 0x00 | 0x01 | 0x00 | 0x00 | 0x00 | add checksum |
+  description_en: "Commax light breaker switch."
+  version: "2.0.0"
+  author: "wooooooooooook"
+  tags: ["light", "commax"]
+
+discovery:
+  match:
+    data: [0xA0, 0x00, 0x01]
+    mask: [0xF0, 0x00, 0xFF]
+  dimensions: []
+
+entities:
+  light:
+    - id: 'light_breaker'
+      name: 'Light Breaker'
+      state:
+        data: [0xA0, 0x00, 0x01]
+        mask: [0xF0, 0x00, 0xFF]
+      state_on:
+        index: 1
+        data: [0x01]
+      state_off:
+        index: 1
+        data: [0x00]
+      command_on:
+        data: [0x22, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00]
+        ack: [0xA2, 0x01, 0x01]
+      command_off:
+        data: [0x22, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00]
+        ack: [0xA2, 0x00, 0x01]

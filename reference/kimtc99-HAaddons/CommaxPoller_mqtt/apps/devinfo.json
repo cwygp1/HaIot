@@ -1,0 +1,30 @@
+{
+  "Light": {
+    "Number": 3,
+    "prefix": "B0"
+  },
+  "Thermo": {
+    "Number": 5,
+    "prefix": "82"
+  },
+  "LightBreaker": {
+    "Number": 1,
+    "prefix": "A0"
+  },
+  "Gas": {
+    "Number": 1,
+    "prefix": "90"
+  },
+  "Outlet": {
+    "Number": 2,
+    "prefix": "F9"
+  },
+  "Fan": {
+    "Number": 0,
+    "prefix": "F6"
+  },
+  "EV": {
+    "Number": 1,
+    "prefix": "23"
+  }
+}

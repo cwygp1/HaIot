@@ -1,0 +1,26 @@
+name: "Commax RS485 Poller (MQTT)"
+description: "월패드 없이 RS485 버스를 유지하는 최소 데몬 (EW11 MQTT 모드)"
+version: "1.0.0"
+slug: "commax_poller_mqtt"
+url: "https://github.com/kimtc99/HAaddons"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+options:
+  mqtt_server: "192.168.x.x"
+  mqtt_port: 1883
+  mqtt_id: ""
+  mqtt_password: ""
+  mqtt_send_topic: "ew11/send"
+  poll_interval: 5
+schema:
+  mqtt_server: str
+  mqtt_port: int
+  mqtt_id: str
+  mqtt_password: str
+  mqtt_send_topic: str
+  poll_interval: int

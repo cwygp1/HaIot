@@ -1,0 +1,82 @@
+meta:
+  name: "환기팬 설정"
+  name_en: "Ventilation Fans"
+  description: |
+    코맥스 환기팬 설정입니다. 개수를 지정할 수 있습니다. 3단 속도와 Auto/Night 모드를 지원합니다.
+
+    | Index | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+    | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+    | 상태 | Head | ON | ID | SPD | 0x00 | 0x00 | 0x00 | add checksum |
+    | 상태 ON | 0xF6 | 0x01 | 0x01 | 0xXX | 0x00 | 0x00 | 0x00 | add checksum |
+    | 상태 OFF | 0xF6 | 0x00 | 0x01 | 0xXX | 0x00 | 0x00 | 0x00 | add checksum |
+    | 응답 ON | 0xF7 | 0x01 | 0x01 | 0xXX | 0x00 | 0x00 | 0x00 | add checksum |
+    | 응답 OFF | 0xF7 | 0x00 | 0x01 | 0xXX | 0x00 | 0x00 | 0x00 | add checksum |
+
+    | Index | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+    | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+    | 명령 | Head | ID | CMD | SPD | 0x00 | 0x00 | 0x00 | add checksum |
+    | 명령 ON | 0x04 | 0x01 | 0x01 | 0x01 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 명령 OFF | 0x04 | 0x01 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | add checksum |
+    | 명령 SPD | 0x04 | 0x01 | 0x02 | 0xXX | 0x00 | 0x00 | 0x00 | add checksum |
+
+    XX 설명:
+      상태/명령 패킷:
+        - SPD (풍량): 0x01:약, 0x02:중, 0x03:강, 0x04:자동, 0x06:취침
+  description_en: "Commax ventilation fans with 3-speed control and Auto/Night preset modes. You can specify the count."
+  version: "2.0.1"
+  author: "wooooooooooook"
+  tags: ["fan", "ventilation", "commax"]
+parameters:
+  - name: fan_count
+    type: integer
+    default: 1
+    min: 1
+    max: 9
+    label: "환기팬 개수"
+    label_en: "Number of Fans"
+discovery:
+  match:
+    data: [0xF6]
+    mask: [0xFE]
+  dimensions:
+    - parameter: "fan_count"
+      index: 2
+  inference:
+    strategy: max
+
+entities:
+  fan:
+    - $repeat:
+        count: '{{fan_count}}'
+        as: i
+        start: 1
+      id: 'fan_{{i}}'
+      name: 'Fan {{i}}'
+      state:
+        data: [0xF0, 0x00, '{{i}}']
+        mask: [0xF1, 0x00, 0xFF]
+      state_on:
+        index: 1
+        data: [0x00]
+        inverted: True
+      state_off:
+        index: 1
+        data: [0x00]
+      command_on:
+        data: [0x78, '{{i}}', 0x01, 0x04, 0x00, 0x00, 0x00]
+        ack: [0xF8, 0x04]
+      command_off:
+        data: [0x78, '{{i}}', 0x01, 0x00, 0x00, 0x00, 0x00]
+        ack: [0xF8, 0x00]
+      command_speed: >-
+        [[0x78, {{i}}, 0x02, x, 0x00, 0x00, 0x00], [0xF8, 0x04]]
+      state_speed:
+        index: 3
+        signed: False
+      speed_range_min: 1
+      speed_range_max: 3
+      preset_modes:
+        - 'Auto'
+        - 'Night'
+      state_preset: >-
+        data[1] == 0x02 ? "Auto" : (data[1] == 0x06 ? "Night" : "")
