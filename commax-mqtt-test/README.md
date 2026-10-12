@@ -1,4 +1,4 @@
-# [TEST] COMMAX Wallpad (EW11) v1.2.4
+# [TEST] COMMAX Wallpad (EW11) v1.2.5
 
 kimtc99의 `commax-mqtt-test` v1.2.3을 바탕으로 제어 불량 원인(저장소 루트 `제어불량_원인분석.md`)을 고친 버전.
 EW11을 **MQTT 모드**로 두고, 이 애드온이 브로커를 통해 패킷을 주고받는다.
@@ -36,13 +36,14 @@ EW11을 **MQTT 모드**로 두고, 이 애드온이 브로커를 통해 패킷�
 ## HA 엔티티
 MQTT Discovery로 자동 등록. unique_id는 v1.2.3과 동일(`commax_light1` 등)이라 기존 엔티티가 그대로 이어진다.
 - light.commax_lightN, switch.commax_lightbreaker1, climate.commax_thermoN (off/heat, 5~40℃)
-- fan.commax_fan1 (preset low/medium/high), switch.commax_outletN + sensor.commax_outletN_watt
+- fan.commax_fan1 (preset low/medium/high) + select.commax_fan1_timer (off/30/60/90분) + sensor.commax_fan1_timer_remaining (남은 분)
+- switch.commax_outletN + sensor.commax_outletN_watt
 - button.commax_gas1 (잠금), button.commax_ev1 (호출) + sensor.commax_ev1_floor
 - 가용성: `commax/status` (애드온 종료 시 unavailable)
 
 ## 상태/명령 토픽
 - 상태: `commax/{Device}{N}/{power|setTemp|curTemp|speed|watt|floor}/state` (retain)
-- 명령: `commax/{Device}{N}/{power|setTemp|speed}/command`
+- 명령: `commax/{Device}{N}/{power|setTemp|speed|timer}/command` (timer: off 또는 분 단위 정수, 예 90)
 
 ## 로컬 테스트
 `python3 -m venv v && v/bin/pip install "paho-mqtt>=2,<3"` 후 저장소의 테스트 스크립트(원인분석 문서 참조)로 가짜 패킷을 흘려 검증할 수 있다.

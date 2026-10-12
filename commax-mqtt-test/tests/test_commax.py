@@ -152,4 +152,27 @@ async def run_long():
 loop.run_until_complete(run_long())
 check(len([p for t,p,_ in fc.pub if t=='ew11/send'])==2, 'max_tx_per_min caps sends at 2')
 print('FAILS(3) =', fails)
+
+# 환기 타이머 (2026-10-13 실측 형식)
+fc.pub.clear(); ctl.queue.clear(); ctl.cfg['max_tx_per_min']=60; ctl.tx_times=[]
+ctl.on_packet('F604010101011E1E')   # 켜짐, 약, 타이머 1h30m
+st = {t[:-6]:p for t,p,_ in fc.pub if t.endswith('/state')}
+check(st.get('commax/Fan1/timer_remaining')==b'90' and st.get('commax/Fan1/timer')==b'90', 'fan timer state 90 parsed '+str({k:v for k,v in st.items() if 'timer' in k}))
+ctl.on_packet('F604010101011D1D')
+st = {t[:-6]:p for t,p,_ in fc.pub if t.endswith('/state')}
+check(st.get('commax/Fan1/timer_remaining')==b'89' and st.get('commax/Fan1/timer')==b'90', 'fan timer countdown 89 -> select stays 90')
+ctl.on_packet('F6040101000000FC')
+st = {t[:-6]:p for t,p,_ in fc.pub if t.endswith('/state')}
+check(st.get('commax/Fan1/timer_remaining')==b'0' and st.get('commax/Fan1/timer')==b'off', 'fan timer off state')
+ctl.on_ha_command(['commax','Fan1','timer','command'], '90')
+check(ctl.queue and ctl.queue[-1]['send']=='780103011E00009B', 'timer 90 command 78 01 03 01 1E 00 00: '+str(ctl.queue[-1]['send'] if ctl.queue else None))
+check(ctl.queue[-1]['ack'].match('F800010101011E1B') and ctl.queue[-1]['ack'].match('F604010101011E1E') and not ctl.queue[-1]['ack'].match('F800010101001E19') and not ctl.queue[-1]['ack'].match('F8000101000000FA'), 'timer 90 ack regex '+ctl.queue[-1]['ack'].pattern)
+ctl.on_ha_command(['commax','Fan1','timer','command'], 'off')
+check(ctl.queue[-1]['send']=='780103000000007C' and ctl.queue[-1]['ack'].match('F8000101000000FA') and ctl.queue[-1]['ack'].match('F6040101000000FC'), 'timer off command/ack')
+ctl.on_ha_command(['commax','Fan1','timer','command'], '30')
+check(ctl.queue[-1]['send']=='780103001E00009A', 'timer 30 command 78 01 03 00 1E')
+fc.pub.clear(); ctl.publish_discovery()
+topics=[t for t,_,_ in fc.pub]
+check('homeassistant/select/commax_fan1_timer/config' in topics and 'homeassistant/sensor/commax_fan1_timer_remaining/config' in topics, 'timer discovery published')
+print('FAILS(4) =', fails)
 sys.exit(1 if fails else 0)

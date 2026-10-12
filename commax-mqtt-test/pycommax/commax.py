@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-[TEST] COMMAX Wallpad (EW11) v1.2.4
+[TEST] COMMAX Wallpad (EW11) v1.2.5
 
 EW11(MQTT 모드) <-> MQTT 브로커 <-> 이 애드온 <-> Home Assistant(MQTT Discovery)
 
@@ -143,6 +143,11 @@ def ack_regex(name, dev, item, action, value=None):
             return '^' + head + '00' + idx
         if action == 'speed':
             return '^' + head + '04' + idx + '0' + str(int(value) + 1)
+        if action == 'timer':          # ack F8 00 ID spd 01 HH MM / 상태 F6 04 ID spd 01 HH MM (같은 배치)
+            hh, mm = divmod(int(value), 60)
+            return '^' + head + '..' + idx + '..01' + '{:02X}{:02X}'.format(hh, mm)
+        if action == 'timer_off':
+            return '^' + head + '..' + idx + '..000000'
     if name == 'Gas':
         return '^(91|90' + ((item.get('stateOFF') or '')[2:6] or '') + ')'
     if name == 'EV':
@@ -208,7 +213,7 @@ class Controller:
     def republish_states(self):
         for key, value in list(self.home.items()):
             # key = DeviceN + prop ; prop은 power/setTemp/curTemp/speed/watt/floor 중 하나
-            for prop in ('power', 'setTemp', 'curTemp', 'speed', 'watt', 'floor'):
+            for prop in ('power', 'setTemp', 'curTemp', 'speed', 'watt', 'floor', 'timer_remaining', 'timer'):
                 if key.endswith(prop):
                     self.publish(STATE_TOPIC.format(key[:-len(prop)], prop), str(value))
                     break
@@ -256,6 +261,17 @@ class Controller:
                         'object_id': oid + '_watt', 'unique_id': oid + '_watt',
                         'device_class': 'power', 'state_class': 'measurement', 'unit_of_measurement': 'W',
                         'stat_t': base + '/watt/state', 'entity_category': 'diagnostic', **avail}, ensure_ascii=False))
+                if name == 'Fan':
+                    self.publish('homeassistant/select/{}_timer/config'.format(oid), json.dumps({
+                        'device': dev, 'name': '{}{} Timer'.format(name, i),
+                        'object_id': oid + '_timer', 'unique_id': oid + '_timer', 'icon': 'mdi:timer-outline',
+                        'cmd_t': base + '/timer/command', 'stat_t': base + '/timer/state',
+                        'options': ['off', '30', '60', '90'], **avail}, ensure_ascii=False))
+                    self.publish('homeassistant/sensor/{}_timer_remaining/config'.format(oid), json.dumps({
+                        'device': dev, 'name': '{}{} Timer Remaining'.format(name, i),
+                        'object_id': oid + '_timer_remaining', 'unique_id': oid + '_timer_remaining',
+                        'icon': 'mdi:timer-sand', 'unit_of_measurement': 'min', 'state_class': 'measurement',
+                        'stat_t': base + '/timer_remaining/state', **avail}, ensure_ascii=False))
                 if name == 'EV':
                     self.publish('homeassistant/sensor/{}_floor/config'.format(oid), json.dumps({
                         'device': dev, 'name': '{}{} Floor'.format(name, i),
@@ -312,6 +328,14 @@ class Controller:
                 if v.lower() in speeds and item.get('CHANGE'):
                     s = speeds.index(v.lower())
                     self.enqueue(name, item, item['CHANGE'][s], ack_regex(name, dev, item, 'speed', s))
+            elif prop == 'timer':
+                # 실측(2026-10-13): 78 ID 03 HH MM 00 00 = 타이머 설정(2진수 시/분), 00 00 = 해제
+                mins = 0 if v.lower() in ('off', '0', 'none', 'unlimited') else int(float(v))
+                hh, mm = divmod(max(0, min(mins, 23 * 60 + 59)), 60)
+                head = (dev.get('commandON') or '78')[:2]
+                hx = checksum('{}{:02X}03{:02X}{:02X}0000'.format(head, idx, hh, mm))
+                self.enqueue(name, item, hx, ack_regex(name, dev, item, 'timer' if mins else 'timer_off', mins))
+                self.set_state(dev_id, 'timer', 'off' if mins == 0 else str(mins))   # 낙관적 선반영
         else:
             self.enqueue(name, item, item.get('command' + onoff), ack_regex(name, dev, item, onoff))
 
@@ -354,6 +378,10 @@ class Controller:
                     spd = int(data[7], 16)
                     if 1 <= spd <= 3:
                         self.set_state(dev_id, 'speed', ['low', 'medium', 'high'][spd - 1])
+                # 타이머: byte4 플래그, byte5 시, byte6 분 (2진수). 1분마다 감소
+                remaining = (int(data[10:12], 16) * 60 + int(data[12:14], 16)) if data[8:10] != '00' else 0
+                self.set_state(dev_id, 'timer_remaining', str(remaining))
+                self.set_state(dev_id, 'timer', 'off' if remaining == 0 else str(min(90, ((remaining + 29) // 30) * 30)))
             elif name == 'Outlet':
                 idx = int(data[int(dev['stateNUM']) - 1], 16)
                 dev_id = 'Outlet{}'.format(idx)
@@ -564,7 +592,7 @@ def load_device_file():
 def main():
     import paho.mqtt.client as mqtt
 
-    log("[TEST] COMMAX Wallpad (EW11) v1.2.4 시작")
+    log("[TEST] COMMAX Wallpad (EW11) v1.2.5 시작")
     with open(CONFIG_DIR + '/options.json') as f:
         config = {**DEFAULTS, **json.load(f)}
     with open(TEMPLATE_FILE, encoding='utf-8') as f:
