@@ -1,4 +1,4 @@
-# [TEST] COMMAX Wallpad (EW11) v1.2.5
+# [TEST] COMMAX Wallpad (EW11) v1.3.0
 
 kimtc99의 `commax-mqtt-test` v1.2.3을 바탕으로 제어 불량 원인(저장소 루트 `제어불량_원인분석.md`)을 고친 버전.
 EW11을 **MQTT 모드**로 두고, 이 애드온이 브로커를 통해 패킷을 주고받는다.
@@ -23,30 +23,45 @@ EW11을 **MQTT 모드**로 두고, 이 애드온이 브로커를 통해 패킷�
 |---|---|---|
 | mqtt_server / mqtt_port / mqtt_id / mqtt_password | | 브로커 접속 정보 |
 | elfin_server / elfin_id / elfin_password | | EW11 IP와 telnet 계정 (비우면 재시작 안 함) |
-| send_gap_ms | 60 | 마지막 수신 후 이만큼 조용해야 송신. 2026-10-12 실측: 15ms→시도당 3회, **60ms→1.6회**, 100ms→2.4회 (EW11 MQTT 모드, Gap Time 기본값) |
-| retry_interval_ms | 300 | 응답 없을 때 재전송 간격 |
-| max_retry | 5 | 재전송 횟수. 초과 시 WARNING 로그 후 폐기 |
-| tx_enable | true | false면 **수신 전용**. HA 명령을 버스로 보내지 않는다. EW11을 새로 붙인 직후 월패드가 멀쩡한지 확인하는 단계에서 사용 |
-| max_tx_per_min | 60 | 분당 송신 상한. 버그/폭주로 버스를 점유하는 사고 방지 |
+| send_gap_ms | 60 | 마지막 수신 후 이만큼 조용해야 송신 창이 열림 (실측: 15→시도당 3회, 60→1.6회, 100→2.4회) |
+| send_window_ms | 70 | 송신 창 폭. 창을 지나치면 다음 수신까지 보류(버스가 1초 이상 조용하면 즉시 송신) |
+| poll_wait_ms | 60 | 마지막 패킷이 월패드 조회(헤더<0x80)였으면 이만큼 더 기다림 |
+| ack_wait_ms | 120 | 한 번 보낸 뒤 ack를 기다리는 시간. 그동안 다른 명령 송신 금지(one-in-flight) |
+| retry_interval_ms | 150 | 재전송 간격 |
+| max_retry | 5 | 재전송 횟수. 초과 시 WARNING 후 폐기 |
+| cmd_ttl_sec | 10 | 큐에서 이 시간 넘게 못 보낸 명령은 만료 |
+| tx_enable | true | false면 수신 전용 |
+| max_tx_per_min | 120 | 분당 신규 명령 상한. 초과분은 폐기하지 않고 대기(TTL까지) |
+| bus_master | auto | 월패드 조회가 `master_after_sec` 동안 없으면 애드온이 조회를 돌림(auto). on=항상, off=안 함 |
+| master_after_sec / master_interval_ms | 10 / 150 | 폴백 진입 대기 / 조회 간격 |
+| ew11_restart_after_sec | 60 | 이 시간 무신호면 프로브 → EW11 telnet 재시작 (백오프 `ew11_restart_min_interval_sec`부터 2배씩) |
+| diag_interval_sec | 60 | 진단 JSON 발행 주기 |
+| purge_discovery | false | true면 시작 시 이전에 발행한 discovery 토픽을 모두 비운 뒤 다시 발행 |
 | scan_seconds | 20 | 최초 장치 검색 시간 |
-| ew11_restart_after_sec | 60 | 이 시간 무신호면 EW11 telnet 재시작 |
-| ew11_restart_min_interval_sec | 300 | 재시작 최소 간격 |
-| DEBUG / mqtt_log / elfin_log | | 로그 수준 (elfin_log는 raw 패킷까지) |
+| DEBUG / mqtt_log / elfin_log / raw_log_minutes | | 로그. elfin_log는 raw_log_minutes 후 자동 종료 |
 
 ## HA 엔티티
 MQTT Discovery로 자동 등록. unique_id는 v1.2.3과 동일(`commax_light1` 등)이라 기존 엔티티가 그대로 이어진다.
 - light.commax_lightN, switch.commax_lightbreaker1, climate.commax_thermoN (off/heat, 5~40℃)
-- fan.commax_fan1 (preset low/medium/high) + select.commax_fan1_timer (off/30/60/90분) + sensor.commax_fan1_timer_remaining (남은 분)
+- fan.commax_fan1 (percentage 1~3단 = 약/중/강, preset auto/night 표시) + select.commax_fan1_timer (off/30/60/90분) + sensor.commax_fan1_timer_remaining (남은 분)
 - switch.commax_outletN + sensor.commax_outletN_watt
-- button.commax_gas1 (잠금), button.commax_ev1 (호출) + sensor.commax_ev1_floor
-- 가용성: `commax/status` (애드온 종료 시 unavailable)
+- button.commax_gas1 (잠금) + binary_sensor.commax_gas1_state (열림), button.commax_ev1 (호출) + sensor.commax_ev1_floor
+- 진단: sensor.commax_diag_success_rate / ack_latency / poll_period / drops / queue, binary_sensor.commax_wallpad_alive
+- 가용성: `commax/status`(애드온) + `commax/bus`(버스 신호) 둘 다 online이어야 사용 가능
 
 ## 상태/명령 토픽
-- 상태: `commax/{Device}{N}/{power|setTemp|curTemp|speed|watt|floor}/state` (retain)
+- 상태: `commax/{Device}{N}/{power|setTemp|curTemp|action|speed|preset|watt|floor|timer_remaining|timer}/state` (retain), 진단 `commax/diag/state`, 월패드 조회 여부 `commax/wallpad/state`
 - 명령: `commax/{Device}{N}/{power|setTemp|speed|timer}/command` (timer: off 또는 분 단위 정수, 예 90)
 
 ## 로컬 테스트
-`python3 -m venv v && v/bin/pip install "paho-mqtt>=2,<3"` 후 저장소의 테스트 스크립트(원인분석 문서 참조)로 가짜 패킷을 흘려 검증할 수 있다.
+```bash
+python3 -m venv v && v/bin/pip install pytest && v/bin/python -I -m pytest -q tests
+```
+가상 시계로 송신 창/재전송/bus_master까지 검증한다(paho 불필요).
+
+## 업그레이드 (v1.2.x → v1.3.0)
+- unique_id가 같아 엔티티는 유지된다. HA 2025.10+는 `object_id`를 무시하므로 v1.2.5에서 `komaegseu_weolpaedeu_*`로 생긴 엔티티 ID는 설정→엔티티에서 `commax_*`로 바꾸면 된다(v1.3.0은 `default_entity_id`로 올바른 ID를 제안).
+- 옛 애드온(0026d5a4)과 동시에 켜지 말 것. 두 송신기가 같은 버스에 명령을 쏜다.
 
 ## 버스 충돌(패킷 겹침)과 송신 타이밍
 

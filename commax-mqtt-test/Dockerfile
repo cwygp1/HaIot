@@ -1,9 +1,9 @@
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 ENV LANG=C.UTF-8
 ENV TZ=Asia/Seoul
 
-RUN pip install --no-cache-dir "paho-mqtt>=2.0,<3"
+RUN pip install --no-cache-dir "paho-mqtt>=2.1,<3"
 
 COPY run.sh /
 COPY pycommax /pycommax

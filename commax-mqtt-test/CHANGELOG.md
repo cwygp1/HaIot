@@ -1,5 +1,27 @@
 수정 사항 Changelog
 ==================
+v 1.3.0 (2026-10-13) — 리뷰 워크플로우 권고 반영 (개선방향_리뷰_워크플로우.md)
+-------
+P0
+1. 수신 스트림 슬라이딩 재동기화 + 이월 버퍼(100ms) + 알려진 헤더 필터: 앞 바이트가 깨져도 뒤따르는 ack를 잃지 않음
+2. 명령응답 헤더(B1/84/A2/91/FA/F8)도 상태로 반영 → 명령 직후 ~50ms에 HA 상태 갱신
+3. 분당 송신 상한 도달 시 폐기 대신 대기, 재전송은 카운트 제외, 명령 TTL(cmd_ttl_sec, 10s) 추가
+P1
+4. 송신 스케줄러: "최소 gap" → 송신 창 [send_gap_ms, +send_window_ms] + one-in-flight(ack_wait_ms) + retry 150ms. 창을 지나치면 다음 수신까지 보류(버스가 1초 이상 조용하면 즉시 송신). last_rx/last_tx 분리
+5. 상태 매칭을 마스크 방식으로: 조명/일괄소등 [헤더][값][ID](byte5 변형 무관), 가스 bit7, 난방 bit0 + action(off/idle/heating), 환기 auto/night 프리셋 표시, setTemp ack `8.`
+6. 워치독: 수신 시각만 기준. 재시작 전 Light1 조회 프로브로 "EW11 생존/월패드 조회 중단"을 구분하고, telnet 포트 확인 후에만 재시작, 백오프 300→600→…초. 2단 availability(`commax/status` + `commax/bus`)
+7. paho 콜백 예외 보호, 접속/끊김 센티널로 루프에서 처리, 재접속 지연 1~30s, 네트워크 스레드 사망 시 프로세스 종료(HA 감시로 재시작), 태스크 자동 재시작
+8. run.sh `exec`, SIGTERM 처리로 종료 시 `commax/status offline` 즉시 발행, client_id에 호스트명 접미사
+9. telnetlib → socket, paho CallbackAPIVersion.VERSION2, 베이스 이미지 python:3.12
+10. shift_id/ID 읽기 바이트 단위 (ID 16 이상 안전)
+11. 진단: `commax/diag/state` JSON(60s) + 센서 5개(첫 시도 성공률, ack 지연 p50, 조회 주기, 폐기 수, 대기 명령) + `binary_sensor.commax_wallpad_alive`. 조회+응답 묶임 비율이 50% 넘으면 EW11 Gap Time 10ms 안내
+12. discovery 보강: `default_entity_id`(HA 2025.10+에서 object_id 대체), device identifiers 배열/model/sw, origin, climate act_t·precision·temp_unit, fan percentage(1~3)+preset(auto/night), gas binary_sensor, 옛 토픽 자동 제거(`/share/commax_discovery_published.json`), `purge_discovery` 옵션
+13. 테스트를 pytest + 가상 시계로 전환 (`tests/test_v13.py`, 27개)
+P2
+14. bus_master 폴백(auto/on/off): 외부 조회가 master_after_sec(10s) 없으면 애드온이 150ms 간격으로 조회를 돌려 버스를 유지. 월패드 조회가 재개되면 즉시 종료
+15. elfin_log는 raw_log_minutes(10분) 후 자동 종료
+16. config: password 타입, 빈 기본값, armhf 제거, bus_master/진단 옵션
+
 v 1.2.5 (2026-10-13)
 -------
 1. 환기 타이머 지원. 실측으로 확인한 패킷: 명령 `78 ID 03 HH MM 00 00`(2진수 시/분, 00 00 = 해제), 상태 `F6 04 ID spd [플래그] [HH] [MM]`(1분마다 감소), 응답 `F8 00 ID spd HH MM`.
