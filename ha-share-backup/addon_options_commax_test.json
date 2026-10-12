@@ -1,0 +1,13 @@
+{
+  "_note": "[TEST] COMMAX Wallpad (EW11) v1.2.3 addon options as configured on HA (slug 0026d5a4_commax_test, repo https://github.com/cwygp/HA), captured 2026-10-12. LAN-only credentials.",
+  "DEBUG": true,
+  "mqtt_log": true,
+  "elfin_log": true,
+  "save_unregistered_signal": true,
+  "mqtt_server": "192.168.1.28",
+  "mqtt_id": "cwygp",
+  "mqtt_password": "<redacted - see local copy>",
+  "elfin_server": "192.168.1.3",
+  "elfin_id": "admin",
+  "elfin_password": "<redacted - see local copy>"
+}
