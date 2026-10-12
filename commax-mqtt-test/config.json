@@ -1,9 +1,9 @@
 {
   "name": "[TEST] COMMAX Wallpad (EW11)",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "slug": "commax_test",
-  "url": "https://github.com/kimtc99/HAaddon",
-  "description": "mqtt 통신을 활용한 코맥스 월패드 컨트롤러",
+  "url": "https://github.com/cwygp1/HaIot",
+  "description": "mqtt 통신을 활용한 코맥스 월패드 컨트롤러 (v1.2.4 버그 수정판)",
   "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
   "map": [
     "share:rw"
@@ -14,24 +14,36 @@
     "DEBUG": false,
     "mqtt_log": true,
     "elfin_log": false,
-    "save_unregistered_signal": false,
     "mqtt_server": "192.168.x.x",
+    "mqtt_port": 1883,
     "mqtt_id": "id",
     "mqtt_password": "password",
     "elfin_server": "192.168.x.x",
     "elfin_id": "admin",
-    "elfin_password": "elfin_password"
+    "elfin_password": "elfin_password",
+    "send_gap_ms": 15,
+    "retry_interval_ms": 300,
+    "max_retry": 5,
+    "scan_seconds": 20,
+    "ew11_restart_after_sec": 60,
+    "ew11_restart_min_interval_sec": 300
   },
   "schema": {
     "DEBUG": "bool",
     "mqtt_log": "bool",
     "elfin_log": "bool",
-    "save_unregistered_signal": "bool",
     "mqtt_server": "str",
+    "mqtt_port": "int(1,65535)?",
     "mqtt_id": "str",
     "mqtt_password": "str",
     "elfin_server": "str",
     "elfin_id": "str",
-    "elfin_password": "str"
+    "elfin_password": "str",
+    "send_gap_ms": "int(5,500)?",
+    "retry_interval_ms": "int(50,5000)?",
+    "max_retry": "int(1,20)?",
+    "scan_seconds": "int(5,120)?",
+    "ew11_restart_after_sec": "int(10,3600)?",
+    "ew11_restart_min_interval_sec": "int(30,86400)?"
   }
 }
