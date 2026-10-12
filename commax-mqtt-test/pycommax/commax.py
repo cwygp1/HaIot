@@ -41,7 +41,7 @@ TEMPLATE_FILE = DATA_DIR + '/commax_devinfo.json'
 
 DEFAULTS = {
     'DEBUG': False, 'mqtt_log': True, 'elfin_log': False,
-    'send_gap_ms': 15, 'retry_interval_ms': 300, 'max_retry': 5,
+    'send_gap_ms': 15, 'poll_wait_ms': 40, 'retry_interval_ms': 300, 'max_retry': 5,
     'scan_seconds': 20,
     'ew11_restart_after_sec': 60, 'ew11_restart_min_interval_sec': 300,
 }
@@ -177,6 +177,7 @@ class Controller:
         self.last_ew11_restart = 0.0
         self.unknown_seen = set()
         self.ev_off_at = 0.0
+        self.last_was_poll = False
         asyncio.set_event_loop(loop)          # Python<3.10: Queue가 생성 시점 루프에 묶임
         self.inbox = asyncio.Queue()
 
@@ -316,6 +317,8 @@ class Controller:
     # ---- EW11 -> 패킷
     def on_packet(self, data):
         self.last_recv = time.monotonic()
+        # 월패드→장치 조회(헤더 <0x80) 뒤에는 장치 응답이 곧 따라오므로 그 직후엔 송신을 피한다
+        self.last_was_poll = int(data[:2], 16) < 0x80
         for q in list(self.queue):
             if q['ack'].match(data):
                 self.queue.remove(q)
@@ -389,6 +392,7 @@ class Controller:
     # ---- 송신 루프
     async def sender(self):
         gap = self.cfg['send_gap_ms'] / 1000.0
+        poll_wait = self.cfg.get('poll_wait_ms', 40) / 1000.0
         retry = self.cfg['retry_interval_ms'] / 1000.0
         max_retry = int(self.cfg['max_retry'])
         while True:
@@ -396,7 +400,9 @@ class Controller:
             if self.ev_off_at and now > self.ev_off_at and self.home.get('EV1power') == 'ON':
                 self.set_state('EV1', 'power', 'OFF')
                 self.ev_off_at = 0.0
-            if self.queue and now - self.last_recv >= gap:
+            # 마지막 패킷이 조회였다면 응답(보통 10~20ms 뒤)이 끝날 때까지 더 기다린다
+            need = max(gap, poll_wait) if self.last_was_poll else gap
+            if self.queue and now - self.last_recv >= need:
                 q = self.queue[0]
                 if now - q['last'] >= retry:
                     if q['count'] >= max_retry:

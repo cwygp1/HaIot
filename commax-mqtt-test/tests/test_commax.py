@@ -116,5 +116,22 @@ check(any(t.startswith('homeassistant/') for t,_,_ in fc.pub) and any(t=='commax
 # unknown header logged once, no exception
 ctl.on_packet('3001000000000031'); ctl.on_packet('3002000000000032')
 check('30' in ctl.unknown_seen, 'unknown header handled')
-print('FAILS =', fails)
+print('FAILS(1) =', fails)
+
+# poll_wait: 마지막 패킷이 조회(헤더<0x80)면 40ms 전에는 송신하지 않음
+fc.pub.clear(); ctl.queue.clear(); ctl.on_ha_command(['commax','Light2','power','command'], 'ON')
+ctl.on_packet('3001000000000031')   # 조회
+async def short_run():
+    task = loop.create_task(ctl.sender()); await asyncio.sleep(0.025); task.cancel()
+    try: await task
+    except asyncio.CancelledError: pass
+loop.run_until_complete(short_run())
+check([p for t,p,_ in fc.pub if t=='ew11/send']==[], 'no send 25ms after a poll packet')
+loop.run_until_complete(short_run())
+check(len([p for t,p,_ in fc.pub if t=='ew11/send'])==1, 'send after poll_wait (40ms) elapsed')
+fc.pub.clear(); ctl.queue.clear(); ctl.on_ha_command(['commax','Light2','power','command'], 'OFF')
+ctl.on_packet('B0010100000000B2')   # 응답
+loop.run_until_complete(short_run())
+check(len([p for t,p,_ in fc.pub if t=='ew11/send'])==1, 'send 15ms after a response packet')
+print('FAILS(2) =', fails)
 sys.exit(1 if fails else 0)

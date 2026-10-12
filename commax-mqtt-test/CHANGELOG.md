@@ -6,7 +6,7 @@ v 1.2.4 (2026-10-12, cwygp1 패치)
 1. MQTT discovery/상태 메시지를 retain으로 발행. `homeassistant/status`가 online이 되면(HA 재시작) discovery와 상태를 재발행 → HA 재시작 후 엔티티가 unavailable로 남는 문제 해결
 2. `commax/status` availability(LWT) 추가 → 애드온이 죽으면 엔티티가 unavailable로 표시됨
 3. 장치 파일명 불일치 수정: `/share/commax_found_device.json` 저장·읽기 통일 (`commax_found_device_new.json`이 있으면 우선 사용). 검색 결과가 0개면 저장하지 않고 30초 후 재검색
-4. 송신 조건을 "마지막 수신 후 100ms" → `send_gap_ms`(기본 15ms)로. 재전송은 `retry_interval_ms`(300ms) 간격, `max_retry`(5)회 후 폐기 시 WARNING 로그
+4. 송신 조건을 "마지막 수신 후 100ms" → `send_gap_ms`(기본 15ms)로. 마지막 패킷이 월패드 조회(헤더<0x80)였으면 `poll_wait_ms`(40ms)까지 기다려 장치 응답과의 충돌을 피함. 재전송은 `retry_interval_ms`(300ms) 간격, `max_retry`(5)회 후 폐기 시 WARNING 로그
 5. 상태를 받기 전에도 HA 명령을 송신 (이전엔 상태 없는 장치의 명령을 무시)
 6. 명령 성공 판정을 정규식으로: 상태 헤더/명령응답 헤더(+0x80) 모두 인정, 난방은 온도 바이트 완전일치 요구 제거(설정온도 변경 시 설정값만 확인)
 7. EW11 재시작 워치독 완화: `ew11_restart_after_sec`(60초) 무신호 후, `ew11_restart_min_interval_sec`(300초)마다 최대 1회. telnet timeout 3초, 별도 스레드로 실행해 송신 루프를 막지 않음. `elfin_server`가 비어 있으면 재시작 안 함
