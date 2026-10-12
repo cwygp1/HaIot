@@ -52,7 +52,7 @@ check(re.match(r,'FA0102110000000D') and re.match(r,'F91102110012340A'), 'outlet
 # 3. controller flow
 loop = asyncio.new_event_loop()
 fc = FakeClient()
-cfg = {'mqtt_id':'a','mqtt_password':'b','mqtt_server':'x','elfin_server':'192.168.x.x','DEBUG':True,'send_gap_ms':15,'retry_interval_ms':100,'max_retry':3}
+cfg = {'mqtt_id':'a','mqtt_password':'b','mqtt_server':'x','elfin_server':'192.168.x.x','DEBUG':True,'send_gap_ms':15,'poll_wait_ms':40,'retry_interval_ms':100,'max_retry':3}
 ctl = C.Controller(cfg, info, fc, loop)
 ctl.publish_discovery()
 topics = [t for t,_,_ in fc.pub]

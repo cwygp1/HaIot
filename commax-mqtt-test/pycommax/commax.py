@@ -7,7 +7,7 @@ EW11(MQTT 모드) <-> MQTT 브로커 <-> 이 애드온 <-> Home Assistant(MQTT D
 v1.2.4 수정 요지 (제어불량_원인분석.md 참조)
   1. 디스커버리/상태 publish retain + HA 재시작(homeassistant/status online) 시 재발행 + LWT availability
   2. 장치 파일명 통일 (commax_found_device.json, _new.json도 읽음), 검색 결과 0개면 저장하지 않고 재검색
-  3. 송신 게이트 100ms -> send_gap_ms(기본 15ms), 재전송은 retry_interval_ms 간격, max_retry 회
+  3. 송신 게이트 100ms -> send_gap_ms(기본 60ms, 실측 튜닝), 재전송은 retry_interval_ms 간격, max_retry 회
   4. 상태 수신 전에도 명령 송신
   5. ack 매칭을 "응답 헤더(명령+0x80)/상태 헤더 + 값 + ID" 정규식으로 (온도 바이트 완전일치 요구 제거)
   6. EW11 재시작 워치독: ew11_restart_after_sec(60) 뒤, ew11_restart_min_interval_sec(300)마다 1회, telnet timeout 3s, 별도 스레드
@@ -41,7 +41,7 @@ TEMPLATE_FILE = DATA_DIR + '/commax_devinfo.json'
 
 DEFAULTS = {
     'DEBUG': False, 'mqtt_log': True, 'elfin_log': False,
-    'send_gap_ms': 15, 'poll_wait_ms': 40, 'retry_interval_ms': 300, 'max_retry': 5,
+    'send_gap_ms': 60, 'poll_wait_ms': 60, 'retry_interval_ms': 300, 'max_retry': 5,
     'tx_enable': True, 'max_tx_per_min': 60,
     'scan_seconds': 20,
     'ew11_restart_after_sec': 60, 'ew11_restart_min_interval_sec': 300,
@@ -393,7 +393,7 @@ class Controller:
     # ---- 송신 루프
     async def sender(self):
         gap = self.cfg['send_gap_ms'] / 1000.0
-        poll_wait = self.cfg.get('poll_wait_ms', 40) / 1000.0
+        poll_wait = self.cfg.get('poll_wait_ms', 60) / 1000.0
         retry = self.cfg['retry_interval_ms'] / 1000.0
         max_retry = int(self.cfg['max_retry'])
         tx_enable = bool(self.cfg.get('tx_enable', True))
