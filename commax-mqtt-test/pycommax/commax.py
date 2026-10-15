@@ -24,7 +24,7 @@ import socket
 import sys
 import time
 
-VERSION = '1.3.0'
+VERSION = '1.3.1'
 
 SHARE_DIR = '/share'
 CONFIG_DIR = '/data'
@@ -576,7 +576,7 @@ class Controller:
         if name is None:
             if data[:2] not in self.unknown_seen:
                 self.unknown_seen.add(data[:2])
-                if head >= 0x80:
+                if head >= 0x80 or data[:2] in ('23', '26'):   # 23/26 = 엘리베이터 층 알림 후보
                     log('[INFO] 미등록 헤더 {} 첫 수신: {}'.format(data[:2], data))
             return
         try:
@@ -655,6 +655,9 @@ class Controller:
 
     def _parse_ev(self, name, data):
         dev = self.dev_info[name]
+        if data not in self.unknown_seen:   # 층 인코딩 보정표용: 처음 보는 원문마다 기록
+            self.unknown_seen.add(data)
+            log('[INFO] EV 층 패킷 원문: {}'.format(data))
         bf = int(dev.get('BasementFloor', 0) or 0)
         if data[:2] == '26':
             floor = int(data[10:12]) if data[10:12].isdigit() else int(data[10:12], 16)
