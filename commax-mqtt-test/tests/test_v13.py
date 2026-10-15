@@ -176,9 +176,9 @@ def test_parse_outlet_and_ev(ctl):
     assert st['commax/Outlet1/power'] == b'ON' and st['commax/Outlet1/watt'] == b'123.4'
     ctl.on_packet('2301030000000027')
     st = ctl.fc.states()
-    assert st['commax/EV1/floor'] == b'2' and st['commax/EV1/power'] == b'ON'   # BasementFloor 2: 3 -> 2층
+    assert st['commax/EV1/floor'] == b'3' and st['commax/EV1/power'] == b'ON'   # BCD 03 -> 3층 (2026-10-15 실측)
     ctl.on_packet(C.checksum('26010146001202'))
-    assert ctl.fc.states()['commax/EV1/floor'] == b'11'
+    assert ctl.fc.states()['commax/EV1/floor'] == b'12'   # 26형: byte5 BCD
 
 
 def test_unknown_header_no_exception(ctl):

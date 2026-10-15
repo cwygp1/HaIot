@@ -24,7 +24,7 @@ import socket
 import sys
 import time
 
-VERSION = '1.3.1'
+VERSION = '1.3.2'
 
 SHARE_DIR = '/share'
 CONFIG_DIR = '/data'
@@ -192,7 +192,7 @@ def ack_regex(name, dev, item, action, value=None):
     if name == 'Gas':
         return '^(91|90[0-7].)'          # 응답 91 또는 잠김 상태(bit7=0)
     if name == 'EV':
-        return '^(23|26)'
+        return '^(22..40|23|26)'   # 월패드 호출 접수(22 01 40 07) 또는 층 알림
     if name == 'Outlet':
         return '^' + head + '[01]' + ('1' if action == 'ON' else '0') + idx
     val = '01' if action == 'ON' else '00'
@@ -658,12 +658,9 @@ class Controller:
         if data not in self.unknown_seen:   # 층 인코딩 보정표용: 처음 보는 원문마다 기록
             self.unknown_seen.add(data)
             log('[INFO] EV 층 패킷 원문: {}'.format(data))
-        bf = int(dev.get('BasementFloor', 0) or 0)
-        if data[:2] == '26':
-            floor = int(data[10:12]) if data[10:12].isdigit() else int(data[10:12], 16)
-        else:
-            floor = int(data[4:6], 16)
-        txt = str(floor - bf + 1) if floor >= bf else 'B' + str(bf - floor)
+        # 층 바이트는 BCD (2026-10-15 실측: 23 01 01 = 1층, 23 01 10 = 10층). 지하층 인코딩은 미확인 → BCD가 아니면 원문 hex 표시
+        raw = data[10:12] if data[:2] == '26' else data[4:6]
+        txt = str(int(raw)) if raw.isdigit() else 'raw ' + raw
         self.set_state('EV1', 'power', 'ON')
         self.set_state('EV1', 'floor', txt)
         self.ev_off_at = self.now() + 3
